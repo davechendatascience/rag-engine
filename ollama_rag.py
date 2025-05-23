@@ -1,11 +1,6 @@
-from langchain_community.tools import BraveSearch
 from langchain_ollama import ChatOllama
 from content_crawler import rag_web_crawl
 import copy
-
-# Initialize Brave Search tool
-api_key = "BSAJ4SpjbW9xCJCyb69qU_EqEmyJXhG"
-search_tool = BraveSearch.from_api_key(api_key=api_key, search_kwargs={"count": 3})
 
 # Initialize Ollama LLM
 llm = ChatOllama(model="llama3.1")
@@ -21,12 +16,7 @@ def rag_chain(question):
     # strip the words "web search query" from the string
     websearch_query = websearch_query.lower().replace("web search query", "")
     print("web search query:", websearch_query)
-    keywords = websearch_query.split(",")
-
-    rag_contexts = []
-    for keyword in keywords:
-        rag_context = rag_web_crawl(keyword)
-        rag_contexts.append(rag_context)
+    rag_contexts = rag_web_crawl(websearch_query)
     context = "\n\n".join(rag_contexts)
     # Optionally, summarize or truncate results if too long
     
