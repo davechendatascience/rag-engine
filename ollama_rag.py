@@ -1,8 +1,10 @@
 from langchain_community.tools import BraveSearch
 from langchain_ollama import ChatOllama
+from content_crawler import rag_web_crawl
+import copy
 
 # Initialize Brave Search tool
-api_key = "XXXX"
+api_key = "BSAJ4SpjbW9xCJCyb69qU_EqEmyJXhG"
 search_tool = BraveSearch.from_api_key(api_key=api_key, search_kwargs={"count": 3})
 
 # Initialize Ollama LLM
@@ -10,28 +12,22 @@ llm = ChatOllama(model="llama3.1")
 
 # Function to run RAG with Brave Search
 def rag_chain(question):
-    websearch_prompt = f"Design a web search query to find information about {question} in one line without any extra text."
+    websearch_prompt = f"Design a web search query to find information about the following content in one line without any extra text. The content is: {question}"
     websearch = llm.invoke(websearch_prompt)
-    search_results = search_tool.run(websearch.content)
-    websearch_context = search_results
-    link_crawl_prompt = f"Use the following web search query to find relevant links: {websearch_context}"
-    link_crawl = llm.invoke(link_crawl_prompt)
-    # crawl links
-    def find_links(text):
-        # Extract links from the text
-        return [line for line in text.split("\n") if line.startswith("http")]
-    links = find_links(link_crawl.content)
-    # get contents from links with beautifulsoup
-    def get_content_from_link(link):
-        # Use requests and BeautifulSoup to get the content from the link
-        import requests
-        from bs4 import BeautifulSoup
-        response = requests.get(link)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        return soup.get_text()
-    
-    webcontents = [websearch_context] + [get_content_from_link(link) for link in links]
-    context = "\n\n".join(webcontents)
+    # extract the query for websearch in brackets
+    extract_prompt = f"Extract one web search query from the following text without any extra text: {websearch.content}"
+    extract_query = llm.invoke(extract_prompt)
+    websearch_query = extract_query.content
+    # strip the words "web search query" from the string
+    websearch_query = websearch_query.lower().replace("web search query", "")
+    print("web search query:", websearch_query)
+    keywords = websearch_query.split(",")
+
+    rag_contexts = []
+    for keyword in keywords:
+        rag_context = rag_web_crawl(keyword)
+        rag_contexts.append(rag_context)
+    context = "\n\n".join(rag_contexts)
     # Optionally, summarize or truncate results if too long
     
     prompt = f"Use the following web results to answer the question:\n\n{context}\n\nQuestion: {question}\nAnswer:"
